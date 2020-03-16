@@ -41,11 +41,27 @@ class MonoAgent():
         for i in range(1000):
             self.do_step()
             value = problem.apply(self.x_)
-            print("Value", value)
+            # print("Value", value)
 
             if abs(value - prev_value) < 1e-9:
                 break
             prev_value = value
+
+class CommunicationGraph():
+    def __init__(self, matrix):
+        self.matrix = matrix 
+        self.queues = [[] for i in range(len(matrix))]
+
+    def send(self, fr, to, x):
+        if self.matrix[fr][to] != 1:
+            raise RuntimeError("Cannot send")
+        self.queues[to].append((fr, x))
+
+
+    def recv(self, who):
+        if self.queues[to].empty():
+            return None
+        return self.queues[to].pop()
 
 if __name__=="__main__":
     x, y = 10,15
