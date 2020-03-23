@@ -76,7 +76,6 @@ class CommunicationGraph():
             return None
         return self.queues[to].pop()
 
-
 class SimpleDistributedAgent():
     def __init__(self, idx, graph, problem):
         self.idx = idx
@@ -236,6 +235,7 @@ if __name__=="__main__":
     parser = argparse.ArgumentParser(description='Process some integers.')
     parser.add_argument('equations',  type=int)
     parser.add_argument('variables',  type=int)
+    parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--max-iter',  type=int, default=MAX_ITER)
     parser.add_argument('--alpha',  type=float, default=ALPHA)
     parser.add_argument('--eps',  type=float, default=EPS)
@@ -248,7 +248,17 @@ if __name__=="__main__":
     parser.add_argument('--simple', action='store_true')
     parser.add_argument('--penalty', action='store_true')
     parser.add_argument('--lagrange', action='store_true')
+
+
+    parser.add_argument('--graph-random', type=float, default=1)
+    parser.add_argument('--graph-star', action='store_true') 
+    parser.add_argument('--graph-line', action='store_true') 
+    parser.add_argument('--graph-circle', action='store_true') 
+
     args = parser.parse_args()
+
+    
+    np.random.seed(args.seed)
 
     ALPHA = args.alpha
     MAX_ITER = args.max_iter
@@ -259,6 +269,25 @@ if __name__=="__main__":
 
     A = np.random.rand(args.equations,args.variables)
     b = np.random.rand(args.equations)
+
+    matrix = np.zeros((agents,agents), dtype=bool)
+
+    if args.graph_star:
+        for i in range(1, agents):
+            matrix[0,i] = matrix[i,0] = True
+    elif args.graph_line:
+        for i in range(1, agents):
+            matrix[i-1,i] = matrix[i,i-1] = True
+    elif args.graph_circle:
+        for i in range(1, agents):
+            matrix[i-1,i] = matrix[i,i-1] = True
+        matrix[0,-1] = matrix[-1,0] = True
+    else:
+        matrix = np.random.random((agents,agents))<args.graph_random
+
+    print("Matrix:")
+    print(matrix)
+
     if args.single:
         print()
         print("Simple gradient descent")
@@ -270,10 +299,10 @@ if __name__=="__main__":
     if args.simple:
         print()
         print("Simple distributed algo")
-        graph = CommunicationGraph(np.ones((agents, agents)))
+        graph = CommunicationGraph(matrix)
         solve_distributed(SimpleDistributedAgent, graph, A, b)
     if args.penalty:
         print()
         print("Penalty distributed algo")
-        graph = CommunicationGraph(np.ones((agents, agents)))
+        graph = CommunicationGraph(matrix)
         solve_distributed(PenaltyDistributedAgent, graph, A, b)
