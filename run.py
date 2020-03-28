@@ -3,35 +3,13 @@ import argparse
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 
+from problem import LinearOptProblem
+
 EPS = 1e-6
 INF = 1e9
 ALPHA = 2e-3
 MAX_ITER = int(1e5)
 R_y = 1
-
-class OptimizationProblem(object):
-    def dim(self):
-        raise NotImplementedError
-    def apply(self,x):
-        raise NotImplementedError
-    def grad(self,x):
-        raise NotImplementedError
-
-class LinearOptProblem(OptimizationProblem):
-    def __init__(self, a, b):
-        self.a_ = a
-        self.b_ = b
-
-    def dim(self):
-        return self.a_.shape[1]
-    
-    def apply(self, x):
-        applied = self.a_.dot(x)
-        diff = (applied - self.b_)
-        return np.sum(diff**2)
-
-    def grad(self, x):
-        return 2*self.a_.T.dot(self.a_.dot(x) - self.b_)
 
 
 class MonoAgent():
@@ -152,7 +130,6 @@ class PenaltyDistributedAgent():
             _, value = msg
             others_xs.append(value)
         self.received_x = np.sum(others_xs, axis=0)
-
 
 def make_many_problems(cnt, A, b):
     step = A.shape[0]//cnt
