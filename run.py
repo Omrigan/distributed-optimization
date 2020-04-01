@@ -54,7 +54,27 @@ class CommunicationGraph():
             return None
         return self.queues[to].pop()
 
-class SimpleDistributedAgent():
+class DistributedAgent:
+    def do_step(self):
+        raise NotImplementedError
+
+    def broadcast(self):
+        raise NotImplementedError
+
+    def recive_all(self):
+        raise NotImplementedError
+
+    def error(self):
+        raise NotImplementedError
+
+    def reg_error(self):
+        raise NotImplementedError
+
+    def report(self):
+        raise NotImplementedError
+
+
+class SimpleDistributedAgent(DistributedAgent):
     def __init__(self, idx, graph, problem):
         self.idx = idx
         self.graph = graph
@@ -64,15 +84,7 @@ class SimpleDistributedAgent():
         self.nodes = graph.get_incedence_list(idx)
 
     def do_step(self):
-        self.x -= ALPHA*self.problem.grad(self.x)
-
-    def error(self):
-        return self.problem.apply(self.x)
-
-    def reg_error(self):
-        return 0
-    def report(self):
-        print("%s x: %s" % (self.idx, self.x))
+        self.x -= alpha*self.problem.grad(self.x)
 
     def broadcast(self):
         for n in self.nodes:
@@ -89,7 +101,16 @@ class SimpleDistributedAgent():
         if len(others_xs) > 0:
             self.x = (self.x + np.mean(others_xs, axis=0))/2
 
-class PenaltyDistributedAgent():
+    def error(self):
+        return self.problem.apply(self.x)
+
+    def reg_error(self):
+        return 0
+
+    def report(self):
+        print("%s x: %s" % (self.idx, self.x))
+
+class PenaltyDistributedAgent(DistributedAgent):
     def __init__(self, idx, graph, problem):
         self.idx = idx
         self.graph = graph
@@ -108,15 +129,6 @@ class PenaltyDistributedAgent():
 
         self.x -= ALPHA*grad
 
-    def reg_error(self):
-        dist = self.received_x - self.x*len(self.nodes)
-        return self.coef*np.sum(dist**2)
-    def report(self):
-        print("%s x: %s" % (self.idx, self.x))
-
-    def error(self):
-        return self.problem.apply(self.x) + self.reg_error()
-
     def broadcast(self):
         for n in self.nodes:
             self.graph.send(self.idx, n, self.x)
@@ -130,6 +142,16 @@ class PenaltyDistributedAgent():
             _, value = msg
             others_xs.append(value)
         self.received_x = np.sum(others_xs, axis=0)
+
+    def error(self):
+        return self.problem.apply(self.x) + self.reg_error()
+
+    def reg_error(self):
+        dist = self.received_x - self.x*len(self.nodes)
+        return self.coef*np.sum(dist**2)
+
+    def report(self):
+        print("%s x: %s" % (self.idx, self.x))
 
 def make_many_problems(cnt, A, b):
     step = A.shape[0]//cnt

@@ -44,17 +44,35 @@ class Divergence:
     def grad_x(self, x, y):
         return 2 * self.x * (self.x - self.y)
 
-def taylor_approx(func, x):
-    def f(y):
-        return func.apply(x) + func.grad(x).dot(y - x)
+class Algoritm:
+    def do_step(self):
+        raise NotImplementedError
+    def get_result(self):
+        raise NotImplementedError
+
+class GradientDescent(Algoritm):
+    def __init__(self, problem, alpha):
+        self.problem = problem
+        self.alpha = alpha
+        self.x = np.zeros(problem.dim())
+
+    def do_step(self):
+        self.x -= self.alpha*self.problem.grad(self.x)
+
+    def get_result(self):
+        return self.x
 
 
+class CompositeProblemAlgorithm(Algoritm):
+    def do_step(self):
+        raise NotImplementedError
+    def get_result(self):
+        raise NotImplementedError
 
-class Sliding:
-    def __init__(self, problem, divergence, 
+class Sliding(CompositeProblemAlgorithm):
+    def __init__(self, problem, 
                  beta = 1, gamma = 0.5, theta = 0.5, p = 1, T = 10):
         self.problem = problem
-        self.divergence = divergence
 
         self.beta = beta
         self.gamma = gamma
@@ -69,21 +87,20 @@ class Sliding:
 
     def do_step(self):
         self.x_model = (1 - self.gamma) * self.x_model + self.gamma * self.x
-        g = taylor_approx(self.problem.non_smooth, self.x_model)
-        self.prox_sliding()
-        self.x_final = (1 - self.gamma) * self.x_final + self.gamma * self.x_final
+        self._prox_sliding()
+        self.x_final = (1 - self.gamma) * self.x_final + self.gamma * self.u_avg
 
-    def prox_sliding(self, g):
-        self.u_avg = self.u = self.x
+    def _prox_sliding(self):
+        smooth_grad = self.problem.smooth.grad(self.x)
+        static_term = (self.x + smooth_grad/self.beta)/(1 + self.p)
+
+        self.u_avg = self.x
         for i in range(self.T):
-            self.u = self.prox_step(self, g)
-            self.u_avg = (1 - self.theta) * self.u_avg + self.theta * self.u_avg
+            non_smooth_grad = self.problem.non_smooth.grad(u)
+            dynamic_term = self.u + non_smooth_grad/(self.beta * (1 + self.p))
 
-    def prox_step(self, g):
-        u_next = self.u
-        for i in range(100):
-            div_grad = self.beta*(self.divergence.grad_x(u_next, self.x) +
-                                  self.p * self.divergence.grad_x(u_next, self.u))
-            grad = div_grad # + ???
-        return u_next
+            self.u = static_term + dynamic_term
+            self.u_avg = (1 - self.theta) * self.u_avg + self.theta * self.u_avg
+        self.x = self.u
+
 
