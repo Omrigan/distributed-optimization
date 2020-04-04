@@ -1,0 +1,1 @@
+python -u ../run.py 32 32 --verbose 2000 --sliding --alpha 1e-3 --max-iter 20000 --eps 1e-5 --reg 1e-3 --agents 8 --graph-star --sliding-theta 0 --sliding-t 30 --sliding-gamma 1 --sliding-p 30 | tee sliding-star.txt

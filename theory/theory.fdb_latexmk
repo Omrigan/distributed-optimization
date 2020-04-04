@@ -1,6 +1,6 @@
 # Fdb version 3
-["pdflatex"] 1585750834 "theory.tex" "theory.pdf" "theory" 1585750834
-  "/dev/null" 1585485916 0 d41d8cd98f00b204e9800998ecf8427e ""
+["pdflatex"] 1585846446 "theory.tex" "theory.pdf" "theory" 1585846446
+  "/dev/null" 1585771296 0 d41d8cd98f00b204e9800998ecf8427e ""
   "/home/omrigan/.texlive/texmf-var/fonts/tfm/lh/lh-t2a/labx1440.tfm" 1557068424 3304 6a543c07045572737981351171e0505e ""
   "/home/omrigan/.texlive/texmf-var/fonts/tfm/lh/lh-t2a/larm1000.tfm" 1557067819 3220 0e417eaf233b160335902e97259a6c77 ""
   "/home/omrigan/.texlive/texmf-var/fonts/tfm/lh/lh-t2a/larm1200.tfm" 1557067821 3240 c2435f2b5cd66d4930bc29b8df87967e ""
@@ -162,11 +162,11 @@
   "/usr/share/texmf-dist/tex/latex/tools/indentfirst.sty" 1572595918 1619 81f309217cfe2e8a93458f2cc7188755 ""
   "/usr/share/texmf-dist/tex/latex/xcolor/xcolor.sty" 1572595918 55589 34128738f682d033422ca125f82e5d62 ""
   "/usr/share/texmf-dist/web2c/texmf.cnf" 1572595918 33301 a3134070eacafb10b1f371612ce2650d ""
-  "/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map" 1584179592 337016 d66ea391cffe31fa16e643319e40298b ""
-  "/var/lib/texmf/web2c/pdftex/pdflatex.fmt" 1584179586 8044939 c0153eba288d52bcdeea391e93fe98c3 ""
-  "theory.aux" 1585685101 557 1ed4c761622028c40537d783be868537 "pdflatex"
+  "/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map" 1585846446 337016 d66ea391cffe31fa16e643319e40298b ""
+  "/var/lib/texmf/web2c/pdftex/pdflatex.fmt" 1585846445 8044938 0dc3977021e698d0fdad646cbf1bbf23 ""
+  "theory.aux" 1585750834 557 1ed4c761622028c40537d783be868537 "pdflatex"
   "theory.tex" 1585750833 5266 96e7ae7331ff12161a3ac1273bf316b0 ""
   (generated)
+  "theory.log"
   "theory.pdf"
   "theory.aux"
-  "theory.log"

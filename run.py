@@ -3,13 +3,15 @@ import argparse
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 
-from problem import LinearOptProblem
+from problem import LinearOptProblem, OptimizationProblem, CompositeProblem, \
+        GradientDescent, Sliding
 
 EPS = 1e-6
 INF = 1e9
 ALPHA = 2e-3
 MAX_ITER = int(1e5)
 R_y = 1
+VERBOSE = False
 
 
 class MonoAgent():
@@ -110,6 +112,9 @@ class SimpleDistributedAgent(DistributedAgent):
     def report(self):
         print("%s x: %s" % (self.idx, self.x))
 
+    def get_result(self):
+        return self.x
+
 class PenaltyDistributedAgent(DistributedAgent):
     def __init__(self, idx, graph, problem):
         self.idx = idx
@@ -122,7 +127,7 @@ class PenaltyDistributedAgent(DistributedAgent):
         self.nodes = graph.get_incedence_list(idx)
 
 
-    def do_step(self):
+    def do_step(self, verbose=False):
         regularization = self.received_x - self.x*len(self.nodes)
         grad = self.problem.grad(self.x)  + 2 * self.coef * regularization * (-len(self.nodes))
         # print(2 * self.coef * regularization * (+len(self.nodes)))
@@ -153,6 +158,69 @@ class PenaltyDistributedAgent(DistributedAgent):
     def report(self):
         print("%s x: %s" % (self.idx, self.x))
 
+    def get_result(self):
+        return self.x
+
+class RegularizationProblem(OptimizationProblem):
+    def __init__(self, received_x_source, neighbors_cnt):
+        self.coef = R_y**2/EPS
+        self.received_x_source = received_x_source
+        self.neighbors_cnt = neighbors_cnt
+
+    def dim(self):
+        return self.received_x_source().dim()
+
+    def apply(self, x):
+        return np.sum((self.received_x_source() - x*self.neighbors_cnt)**2)
+
+    def grad(self, x):
+        # print("Received ", self.received_x_source())
+        regularization = self.received_x_source() - x*self.neighbors_cnt
+        return  2 * self.coef * regularization * (-self.neighbors_cnt)
+
+
+class GenericPenaltyDistributedAgent(DistributedAgent):
+    def __init__(self, idx, graph, problem, algorithm_factory):
+        self.idx = idx
+        self.graph = graph
+        
+        self.received_x = np.zeros(problem.dim())
+        self.nodes = graph.get_incedence_list(idx)
+
+        reg_problem = RegularizationProblem(lambda: self.received_x, len(self.nodes))
+        self.problem = CompositeProblem(problem, reg_problem)
+        self.algorithm = algorithm_factory(self.problem)
+
+    def do_step(self,verbose):
+        self.algorithm.do_step(verbose)
+
+    def broadcast(self):
+        for n in self.nodes:
+            self.graph.send(self.idx, n, self.algorithm.get_result())
+
+    def recive_all(self):
+        others_xs = []
+        while True:
+            msg = self.graph.recv(self.idx)
+            if msg is None:
+                break
+            _, value = msg
+            others_xs.append(value)
+        self.received_x = np.sum(others_xs, axis=0)
+
+    def error(self):
+        return self.problem.apply(self.algorithm.get_result())
+
+    def reg_error(self):
+        return self.problem.non_smooth.apply(self.algorithm.get_result())
+
+    def report(self):
+        print("%s x: %s" % (self.idx, self.algorithm.get_result()))
+
+    def get_result(self):
+        return self.algorithm.get_result()
+
+
 def make_many_problems(cnt, A, b):
     step = A.shape[0]//cnt
     result = []
@@ -166,7 +234,7 @@ def make_many_problems(cnt, A, b):
 def aggregate_mean(agents):
     xs = [] 
     for agent in agents:
-        xs.append(agent.x)
+        xs.append(agent.get_result())
     return np.mean(xs, axis=0)
 
 def get_error(problems, x):
@@ -183,23 +251,25 @@ def report_distributed(problems, agents):
         agent_error += agent.error()
         agent_reg_error += agent.reg_error()
     print("Agent reg error: ", agent_reg_error)
-    print("Agent error: ", agent_error)
+    print("Agent sum error: ", agent_error)
 
     x = aggregate_mean(agents)
     error = get_error(problems, x)
-    print("Error: ", error)
+    print("Error after aggregation: ", error)
     print()
 
-def solve_distributed(agent_class, graph, A, b):
+def solve_distributed(agent_factory, graph, A, b):
     cnt = len(graph.matrix)
     problems = make_many_problems(cnt, A, b)
-    agents = [agent_class(i, graph, problem) for i, problem in enumerate(problems)]
+    agents = [agent_factory(i, graph, problem) for i, problem in enumerate(problems)]
 
     prev_error = INF 
     report_distributed(problems, agents)
     for i in range(MAX_ITER):
+        will_report = VERBOSE and (i % VERBOSE) == 0
+
         for agent in agents:
-            agent.do_step()
+            agent.do_step(will_report)
             agent.broadcast()
         for agent in agents:
             agent.recive_all()
@@ -207,11 +277,13 @@ def solve_distributed(agent_class, graph, A, b):
         x = aggregate_mean(agents)
         error = get_error(problems, x)
 
-        if i % (MAX_ITER//10)== 0:
+        if will_report:
             report_distributed(problems, agents)
+            print("Iteration", i)
         if abs(error - prev_error) < EPS:
             break
     report_distributed(problems, agents)
+    print("Result")
     print(x)
 
 def solve_mono_agent(A, b):
@@ -226,14 +298,17 @@ def solve_sklearn(A, b):
     model = LinearRegression(fit_intercept=False)
     model.fit(A, b)
     result_sklearn = mean_squared_error(model.predict(A), b)
+    print("Manual result")
     print(model.coef_)
+    print("Sklearn result")
     print(result_sklearn)
 
 if __name__=="__main__":
 
-    parser = argparse.ArgumentParser(description='Process some integers.')
+    parser = argparse.ArgumentParser(description='Solve problem')
     parser.add_argument('equations',  type=int)
     parser.add_argument('variables',  type=int)
+    parser.add_argument('--verbose', type=int, help='report x times')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--max-iter',  type=int, default=MAX_ITER)
     parser.add_argument('--alpha',  type=float, default=ALPHA)
@@ -246,8 +321,13 @@ if __name__=="__main__":
     parser.add_argument('--sklearn', action='store_true')
     parser.add_argument('--simple', action='store_true')
     parser.add_argument('--penalty', action='store_true')
-    parser.add_argument('--lagrange', action='store_true')
+    parser.add_argument('--penalty-generic', action='store_true')
+    parser.add_argument('--sliding', action='store_true')
 
+    parser.add_argument('--sliding-t', type=int, default=10)
+    parser.add_argument('--sliding-gamma', type=float, default=0.5)
+    parser.add_argument('--sliding-theta', type=float, default=0.5)
+    parser.add_argument('--sliding-p', type=float, default=1)
 
     parser.add_argument('--graph-random', type=float, default=1)
     parser.add_argument('--graph-star', action='store_true') 
@@ -256,7 +336,7 @@ if __name__=="__main__":
 
     args = parser.parse_args()
 
-    
+    VERBOSE = args.verbose
     np.random.seed(args.seed)
 
     ALPHA = args.alpha
@@ -305,3 +385,23 @@ if __name__=="__main__":
         print("Penalty distributed algo")
         graph = CommunicationGraph(matrix)
         solve_distributed(PenaltyDistributedAgent, graph, A, b)
+    if args.penalty_generic:
+        print()
+        print("Generic penalty distributed algo")
+        graph = CommunicationGraph(matrix)
+        algo_factory = lambda problem: GradientDescent(problem, ALPHA)
+        agent_factory = lambda idx, graph, problem: GenericPenaltyDistributedAgent(idx, 
+                graph, problem, algo_factory)
+        solve_distributed(agent_factory, graph, A, b)
+    if args.sliding:
+        print()
+        print("Sliding")
+        graph = CommunicationGraph(matrix)
+        algo_factory = lambda problem: Sliding(problem, beta=1/ALPHA, T=args.sliding_t, 
+                                              gamma=args.sliding_gamma, theta=args.sliding_theta,
+                                              p=args.sliding_p)
+        agent_factory = lambda idx, graph, problem: GenericPenaltyDistributedAgent(idx, 
+                graph, problem, algo_factory)
+        solve_distributed(agent_factory, graph, A, b)
+
+
