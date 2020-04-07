@@ -47,8 +47,13 @@ optional arguments:
 ```
 
 В начале работы всегда генерируется случайная система линейных уравнений, которая решается разными способами.
+
+Все вычисления выполняются синхронно, коммуникация моделируются при помощи класса CommunicationGraph. При необходимости, конструкцию можно сделать параллельной по-честному. Решения из разных агентов усредняются.
+
 В папке `experiments` есть заготовленные варианты запуска, со слайдингом и методом подобных треугольников.
+Программа периодически выводит значение векторов, также можно видеть промежуточные результаты. Финальный результат виден в конце файла.
 
 Например, можно видеть, что в одном из экспериментов [слайдинг](
 https://raw.githubusercontent.com/Omrigan/distributed-optimization/master/experiments/sliding-star.txt) справляется лучше, чем [простой градиентный спуск](
 https://github.com/Omrigan/distributed-optimization/blob/master/experiments/penalty-star.txt) 
+На другом примере показано превосходство [метода подобных треугольников](https://github.com/Omrigan/distributed-optimization/blob/master/experiments/triangles-small.txt) перед [градиентным спуском](https://github.com/Omrigan/distributed-optimization/blob/master/experiments/penalty-small.txt)
