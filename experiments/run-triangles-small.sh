@@ -1,1 +1,1 @@
-python -u ../run.py 16 16 --triangles --alpha 1e-3 --max-iter 1000 --verbose 100 --reg 0.001 --agents 8 --graph-star --sliding-t 30 --sliding-p 50 | tee triangles-small.txt
+python -u ../run.py 16 16 --triangles --alpha 1e-3 --max-iter 1000 --verbose 100 --reg 0.001 --agents 8 --graph-star --sliding-t 30 --sliding-p 50 --plot-name plots/triangles-small.log | tee triangles-small.txt

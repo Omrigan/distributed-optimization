@@ -1,0 +1,14 @@
+set term png
+set output "plot-result/star.png"
+
+set yrange [0:2]
+
+plot "./experiments/plots/penalty-star.log" using 1:2 with lines t 'Penalty (final)', \
+    "./experiments/plots/sliding-star.log" using 1:2 with lines t 'Sliding (final)', \
+    "./experiments/plots/penalty-star.log" using 1:3 with lines t 'Penalty (per agent)', \
+    "./experiments/plots/sliding-star.log" using 1:3 with lines t 'Sliding (per agent)'
+
+
+set xlabel 'Iterations'
+set ylabel 'Error'
+set title 'Sliding vs penalty method'

@@ -1,0 +1,1 @@
+python -u ../run.py 32 32 --verbose 2000 --sliding --alpha 2e-3 --max-iter 20000 --eps 1e-5 --reg 2e-3 --agents 8 --graph-circle --sliding-theta 0 --sliding-t 30 --sliding-gamma 1 --sliding-p 30 --plot-name plots/sliding-log.log --problem logistic | tee sliding-log.txt

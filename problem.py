@@ -29,6 +29,26 @@ class LinearOptProblem(OptimizationProblem):
         return 2 * self.a_.T.dot(self.a_.dot(x) - self.b_)
 
 
+class LogisticProblem(OptimizationProblem):
+    def __init__(self, a, b):
+        self.a_ = a
+        self.b_ = b > 0.5
+
+    def _left_part(self, x):
+        return 1 / (1 + np.e**(-self.a_.dot(x)))
+
+    def dim(self):
+        return self.a_.shape[1]
+
+    def apply(self, x):
+        prob = self._left_part(x)
+
+        return  - np.mean(self.b_ * np.log(prob) + (1 - self.b_) * np.log(1 - prob))
+
+    def grad(self, x):
+        return  self.a_.T.dot(self._left_part(x) - self.b_)
+
+
 class CompositeProblem(OptimizationProblem):
     def __init__(self, smooth, non_smooth):
         self.smooth = smooth
@@ -114,7 +134,7 @@ class Sliding(CompositeProblemAlgorithm):
         for i in range(self.T):
             non_smooth_grad = self.problem.non_smooth.grad(self.u)
             # if verbose:
-                # print("Non smooth grad", non_smooth_grad)
+            # print("Non smooth grad", non_smooth_grad)
             # print("U", self.u)
             dynamic_term = self.u - non_smooth_grad / self.beta
             # print("Dynamic term", dynamic_term)
@@ -133,7 +153,7 @@ class Triangles(Algoritm):
         self.problem = problem
         self.L = float(L)
         self.step_idx = 1
-        self.step = subproblem_step 
+        self.step = subproblem_step
         self.T = T
 
         self.alpha = 1 / self.L
@@ -144,7 +164,6 @@ class Triangles(Algoritm):
         self.u = self.solve_subproblem()
         self.x = np.copy(self.u)
 
-
     def solve_subproblem(self):
         self.cumulative_smooth_grad += self.alpha *  \
             self.problem.smooth.grad(self.y)
@@ -152,12 +171,12 @@ class Triangles(Algoritm):
         for i in range(self.T):
             grad = self.cumulative_smooth_grad/self.A + \
                     self.problem.non_smooth.grad(result)
-            result = result - self.step * grad 
+            result = result - self.step * grad
             # print("Subproblem grad", self.step*grad)
         return result
 
     def do_step(self, verbose=False):
-        self.step_idx+=1
+        self.step_idx += 1
         invL = 1 / (2 * self.L)
         self.alpha = invL + (invL**2 + self.alpha**2)**0.5
         A_prev = self.A
@@ -172,7 +191,6 @@ class Triangles(Algoritm):
             print("X", self.x)
             print("alpha", self.alpha)
             print("A", self.A)
-
 
     def get_result(self):
         return self.x

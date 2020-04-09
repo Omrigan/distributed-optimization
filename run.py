@@ -4,7 +4,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 
 from problem import LinearOptProblem, OptimizationProblem, CompositeProblem, \
-        GradientDescent, Sliding, Triangles
+        GradientDescent, Sliding, Triangles, LogisticProblem
 
 EPS = 1e-6
 INF = 1e9
@@ -226,13 +226,13 @@ class GenericPenaltyDistributedAgent(DistributedAgent):
         return self.algorithm.get_result()
 
 
-def make_many_problems(cnt, A, b):
+def make_many_problems(cnt, A, b, problem_factory):
     step = A.shape[0] // cnt
     result = []
     for i in range(cnt):
         A_small = A[i * step:(i + 1) * step]
         b_small = b[i * step:(i + 1) * step]
-        subproblem = LinearOptProblem(A_small, b_small)
+        subproblem = problem_factory(A_small, b_small)
         result.append(subproblem)
     return result
 
@@ -251,6 +251,15 @@ def get_error(problems, x):
     return error
 
 
+def write_plot_data(f, agents, i):
+    problems = [agent.problem for agent in agents]
+    x = aggregate_mean(agents)
+
+    agg_error = get_error(problems, x)
+    per_agent_error = np.sum([agent.error() for agent in agents])
+    f.write("%s %s %s\n" % (i, agg_error, per_agent_error))
+
+
 def report_distributed(problems, agents):
     agent_error = 0
     agent_reg_error = 0
@@ -267,9 +276,12 @@ def report_distributed(problems, agents):
     print()
 
 
-def solve_distributed(agent_factory, graph, A, b):
+def solve_distributed(agent_factory, graph, A, b, plot_name, problem_factory):
+    if plot_name:
+        plot_f = open(plot_name, 'w')
+        plot_f.write("agg_error per_agent_error\n")
     cnt = len(graph.matrix)
-    problems = make_many_problems(cnt, A, b)
+    problems = make_many_problems(cnt, A, b, problem_factory)
     agents = [
         agent_factory(i, graph, problem) for i, problem in enumerate(problems)
     ]
@@ -287,6 +299,8 @@ def solve_distributed(agent_factory, graph, A, b):
 
         x = aggregate_mean(agents)
         error = get_error(problems, x)
+        if plot_name:
+            write_plot_data(plot_f, agents, i)
 
         if will_report:
             report_distributed(problems, agents)
@@ -296,6 +310,8 @@ def solve_distributed(agent_factory, graph, A, b):
     report_distributed(problems, agents)
     print("Result")
     print(x)
+    if plot_name:
+        plot_f.close()
 
 
 def solve_mono_agent(A, b):
@@ -326,6 +342,7 @@ if __name__ == "__main__":
                         help="number of linear equation")
     parser.add_argument('variables', type=int, help="number of variables")
     parser.add_argument('--verbose', type=int, help='report x times')
+    parser.add_argument('--plot-name')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--max-iter', type=int, default=MAX_ITER)
     parser.add_argument('--alpha',
@@ -363,6 +380,7 @@ if __name__ == "__main__":
                         "implemented through generic constructions")
     parser.add_argument('--sliding', action='store_true')
     parser.add_argument('--triangles', action='store_true')
+    parser.add_argument('--problem')
 
     parser.add_argument(
         '--sliding-t',
@@ -421,6 +439,11 @@ if __name__ == "__main__":
     print(matrix)
     print()
 
+    if args.problem == 'logistic':
+        problem_factory = LogisticProblem
+    else:
+        problem_factory = LinearOptProblem
+
     if args.single:
         print("Simple gradient descent")
         solve_mono_agent(A, b)
@@ -430,18 +453,17 @@ if __name__ == "__main__":
     if args.simple:
         print("Simple distributed algo")
         graph = CommunicationGraph(matrix)
-        solve_distributed(SimpleDistributedAgent, graph, A, b)
+        agent_factory = SimpleDistributedAgent
     if args.penalty:
         print("Penalty distributed algo")
         graph = CommunicationGraph(matrix)
-        solve_distributed(PenaltyDistributedAgent, graph, A, b)
+        agent_factory = PenaltyDistributedAgent
     if args.penalty_generic:
         print("Generic penalty distributed algo")
         graph = CommunicationGraph(matrix)
         algo_factory = lambda problem: GradientDescent(problem, ALPHA)
         agent_factory = lambda idx, graph, problem: GenericPenaltyDistributedAgent(
             idx, graph, problem, algo_factory)
-        solve_distributed(agent_factory, graph, A, b)
     if args.sliding:
         print("Sliding")
         graph = CommunicationGraph(matrix)
@@ -453,7 +475,6 @@ if __name__ == "__main__":
                                                p=args.sliding_p)
         agent_factory = lambda idx, graph, problem: GenericPenaltyDistributedAgent(
             idx, graph, problem, algo_factory)
-        solve_distributed(agent_factory, graph, A, b)
     if args.triangles:
         print("Triangles")
         graph = CommunicationGraph(matrix)
@@ -464,4 +485,9 @@ if __name__ == "__main__":
                                                  T=args.sliding_t)
         agent_factory = lambda idx, graph, problem: GenericPenaltyDistributedAgent(
             idx, graph, problem, algo_factory)
-        solve_distributed(agent_factory, graph, A, b)
+    solve_distributed(agent_factory,
+                      graph,
+                      A,
+                      b,
+                      plot_name=args.plot_name,
+                      problem_factory=problem_factory)

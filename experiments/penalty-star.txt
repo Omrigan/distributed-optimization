@@ -1,4 +1,4 @@
-Matrix:
+Graph matrix adjacency:
 [[False  True  True  True  True  True  True  True]
  [ True False False False False False False False]
  [ True False False False False False False False]
